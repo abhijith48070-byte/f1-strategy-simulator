@@ -7,7 +7,7 @@ session.load()
 #print(dir(session))
 b = session.laps
 print(b.info())
-#print(b[["PitOutTime","PitInTime"]])
+print(b[["PitOutTime","PitInTime"]])
 b["PitOutTime"]=b["PitOutTime"].fillna(0)
 b["PitInTime"]=b["PitInTime"].fillna(0)
 
@@ -118,14 +118,14 @@ print(
     })
 )
 
-#plt.scatter(
-#    b["TyreLife"],
-#    b["LapTimeSeconds"]
-#)
-#plt.xlabel("Tyre Life")
-#plt.ylabel("Lap Time (seconds)")
-#plt.title("Tyre Degradation")
-#plt.show()
+plt.scatter(
+    b["TyreLife"],
+    b["LapTimeSeconds"]
+)
+plt.xlabel("Tyre Life")
+plt.ylabel("Lap Time (seconds)")
+plt.title("Tyre Degradation")
+plt.show()
 from sklearn.metrics import r2_score
 print(
     r2_score(
@@ -139,13 +139,13 @@ for name, imp in zip(
 ):
     print(name, imp)
 plt.plot(b["LapNumber"],b["LapTimeSeconds"])
-#plt.show()
+plt.show()
 colors={0:"red",1:"green",2:"blue"}
 for compound in b["Compound"].unique():
     temp=b[b["Compound"]==compound]
     plt.scatter(temp["TyreLife"],temp["LapTimeSeconds"],c=colors[compound],label=compound)
 plt.legend()
-#plt.show()
+plt.show()
 
 
 #######PIT WINDOW SIMULATOR#######
@@ -155,15 +155,7 @@ plt.legend()
 #3. we need avg pitstop time and we already predicted lap time seconds but now we need to do it separately for 
 #.  before and after new tyre is made
 #now will have time when tyre is changed i.e pitstop and never will have other values
-#pit_loss=[]
-#for i in range(len(b)-1):
-    #if(b["TyreLife"].iloc[i]>b["TyreLife"].iloc[i+1]):
-     #   b.loc[b.index[i],"now"]=b["LapTimeSeconds"].iloc[i]
-    #else:
-     #   b.loc[b.index[i],"never"]=b["LapTimeSeconds"].iloc[i]
-  #      pit_loss.append(b["LapStartTime"].iloc[i+1]-b["LapStartTime"].iloc[i])
-#print(pit_loss)
-#print(sum(pit_loss)/len(pit_loss))
+
 print(b.info())
 time_to_predict_new=[]
 time_to_predict_old=[]
@@ -199,7 +191,7 @@ print(
     )
 )
 u=GradientBoostingRegressor()
-X=ntfresh[["LapNumber","TyreLife","Compound","LapTimeSeconds"]]
+X=ntfresh[["LapNumber","TyreLife","Compound"]]
 y=time_to_predict_old
 
 X_train, X_test, y_train, y_test = train_test_split(
