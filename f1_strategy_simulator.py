@@ -1,230 +1,170 @@
 import fastf1
 import matplotlib.pyplot as plt
 import pandas as pd
-session = fastf1.get_session(2024, 'Monaco', 'R')
+session = fastf1.get_session(2024, "Monaco", "R")
 session.load()
-########PREDICTING_PIT_STOP############
-#print(dir(session))
-b = session.laps
-print(b.info())
-print(b[["PitOutTime","PitInTime"]])
-b["PitOutTime"]=b["PitOutTime"].fillna(0)
-b["PitInTime"]=b["PitInTime"].fillna(0)
-
-for i in range(len(b)-1):
-    if(b["TyreLife"].iloc[i+1]==1):
-        b.loc[b.index[i],"idk"]=1
-    else:
-        b.loc[b.index[i],"idk"]=0
-b["Compound"]=b["Compound"].map({
-    "SOFT":0,"MEDIUM":1,"HARD":2
-})
-b["LapStartTime"]=b["LapStartTime"].dt.total_seconds()
-b["PitOutTime"] = (
-    pd.to_timedelta(
-        b["PitOutTime"]
-    )
-    .dt.total_seconds()
+##################################################
+# PIT STOP PREDICTION
+##################################################
+laps = session.laps
+print(laps.info())
+print(laps[["PitOutTime", "PitInTime"]])
+laps["PitOutTime"] = laps["PitOutTime"].fillna(0)
+laps["PitInTime"] = laps["PitInTime"].fillna(0)
+laps["Compound"] = laps["Compound"].map({"SOFT": 0,"MEDIUM": 1,"HARD": 2})
+laps["LapStartTime"] = laps["LapStartTime"].dt.total_seconds()
+laps["PitOutTime"] = (pd.to_timedelta(laps["PitOutTime"]).dt.total_seconds())
+laps["PitInTime"] = (pd.to_timedelta(laps["PitInTime"]).dt.total_seconds())
+laps["PitStopNextLap"] = (laps["TyreLife"].shift(-1) .eq(1).fillna(False).astype(int))
+for i in range(len(laps) - 1):
+    laps.loc[laps.index[i], "AdjustedLapTime"] = (laps["LapStartTime"].iloc[i + 1]- laps["LapStartTime"].iloc[i])
+    laps.loc[laps.index[i], "PitTimeLoss"] = (laps["PitOutTime"].iloc[i + 1]- laps["PitInTime"].iloc[i])
+for i in range(len(laps) - 1):
+    if laps["PitStopNextLap"].iloc[i] == 1:
+        laps.loc[laps.index[i], "AdjustedLapTime"] = (laps["AdjustedLapTime"].iloc[i]- laps["PitTimeLoss"].iloc[i])
+print( laps[
+        [
+            "LapNumber",
+            "PitOutTime",
+            "PitInTime",
+            "TyreLife",
+            "PitStopNextLap",
+            "Compound",
+            "LapStartTime",
+            "AdjustedLapTime",
+            "PitTimeLoss",
+        ]
+    ].head()
 )
-b["PitInTime"] = (
-    pd.to_timedelta(
-        b["PitInTime"]
-    )
-    .dt.total_seconds()
-)
-b["idk"] = (
-    b["TyreLife"]
-    .shift(-1)
-    == 1
-).fillna(False).astype(int)
 
-for i in range(len(b)-1):
-    b.loc[b.index[i],"lt"]=b["LapStartTime"].iloc[i+1]-b["LapStartTime"].iloc[i]
-    b.loc[b.index[i],"pt"]=b["PitOutTime"].iloc[i+1]-b["PitInTime"].iloc[i]
-for i in range(len(b)-1):
-    if(b["idk"].iloc[i]==1):
-        b.loc[b.index[i],"lt"]=b["lt"].iloc[i]-b["pt"].iloc[i]
-print(b[["LapNumber","PitOutTime","PitInTime","TyreLife","idk","Compound","LapStartTime","lt","pt"]].head())
 from sklearn.ensemble import RandomForestClassifier
-l=RandomForestClassifier()
-X=b[["LapNumber","TyreLife","Compound","lt"]]
-y=b["idk"]
 from sklearn.model_selection import train_test_split
-f,g,h,i=train_test_split(X,y,stratify=y,train_size=0.5)
-l.fit(f,h)
-m=l.predict(g)
-print(m)
-print(i)
-from sklearn.metrics import confusion_matrix
-print(
-   confusion_matrix(i, m)
-)
-from sklearn.metrics import accuracy_score
-acc=accuracy_score(m,i)
-print(acc)
-
-
-
-#######TYRE_DEGRADATION########
-print(b[["TyreLife","FreshTyre"]])
-b = b.pick_quicklaps()
-b["LapTimeSeconds"] = (
-    b["LapTime"]
-    .dt.total_seconds()
-)
-X = b[[
-    "TyreLife",
-    "Compound",
-    "LapNumber",
-    
-]]
-y = b["LapTimeSeconds"]
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, accuracy_score
+pit_stop_model = RandomForestClassifier()
+features_pitstop = laps[[ "LapNumber","TyreLife","Compound","AdjustedLapTime"]]
+target_pitstop = laps["PitStopNextLap"]
 X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.3,
-    random_state=42
+    features_pitstop,
+    target_pitstop,
+    stratify=target_pitstop,
+    train_size=0.5
 )
+pit_stop_model.fit(X_train, y_train)
+pit_predictions = pit_stop_model.predict(X_test)
+print(pit_predictions)
+print(y_test)
+print(confusion_matrix( y_test,pit_predictions))
+pit_accuracy = accuracy_score(y_test,pit_predictions)
+print(pit_accuracy)
+
+##################################################
+# TYRE DEGRADATION MODEL
+##################################################
+print(laps[["TyreLife","FreshTyre"]])
+laps = laps.pick_quicklaps()
+laps["LapTimeSeconds"] = (laps["LapTime"].dt.total_seconds())
+features_tyred = laps[["TyreLife","Compound","LapNumber"]]
+target_tyred = laps["LapTimeSeconds"]
+from sklearn.metrics import mean_absolute_error
+from sklearn.ensemble import (RandomForestRegressor,GradientBoostingRegressor)
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
+x_train, x_test, y_train, y_test = train_test_split(features_tyred,target_tyred,test_size=0.3,random_state=42)
 scaler = StandardScaler()
-
-X_train = scaler.fit_transform(X_train)
-
-X_test = scaler.transform(X_test)
-model = GradientBoostingRegressor()
-model.fit(
-    X_train,
-    y_train
-)
-pred = model.predict(X_test)
-print(
-    "MAE:",
-    mean_absolute_error(
-        y_test,
-        pred
-    )
-)
-print(
-    pd.DataFrame({
-        "Actual": y_test,
-        "Predicted": pred
-    })
-)
-
-plt.scatter(
-    b["TyreLife"],
-    b["LapTimeSeconds"]
-)
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+tyre_degradation_model = GradientBoostingRegressor()
+tyre_degradation_model.fit(x_train,y_train)
+predicted_lap_times = tyre_degradation_model.predict(x_test)
+print("MAE:",mean_absolute_error(y_test,predicted_lap_times))
+print(pd.DataFrame(  {"Actual": y_test,"Predicted": predicted_lap_times}))
+plt.scatter(laps["TyreLife"],laps["LapTimeSeconds"])
 plt.xlabel("Tyre Life")
 plt.ylabel("Lap Time (seconds)")
 plt.title("Tyre Degradation")
 plt.show()
-from sklearn.metrics import r2_score
-print(
-    r2_score(
-        y_test,
-        pred
-    )
-)
-for name, imp in zip(
-    X.columns,
-    model.feature_importances_
-):
-    print(name, imp)
-plt.plot(b["LapNumber"],b["LapTimeSeconds"])
+print(r2_score(  y_test,predicted_lap_times))
+for feature_name, importance in zip(features_tyred.columns,tyre_degradation_model.feature_importances_):
+    print(feature_name,importance)
+plt.plot(laps["LapNumber"],laps["LapTimeSeconds"])
 plt.show()
-colors={0:"red",1:"green",2:"blue"}
-for compound in b["Compound"].unique():
-    temp=b[b["Compound"]==compound]
-    plt.scatter(temp["TyreLife"],temp["LapTimeSeconds"],c=colors[compound],label=compound)
+colors = {0: "red",1: "green",2: "blue"}
+for compound in laps["Compound"].unique():
+    compound_data = laps[laps["Compound"] == compound]
+    plt.scatter(compound_data["TyreLife"],compound_data["LapTimeSeconds"],c=colors[compound],label=compound)
 plt.legend()
 plt.show()
 
+##############################################
+# PIT WINDOW SIMULATOR
+###############################################
 
-#######PIT WINDOW SIMULATOR#######
-#1. we predict the lap time of next 5-10 laps with and without pitstops if the time
-#   without pitstops is less then no pitstop or else the code should advise to take the pitstop
-#2. we take avg pitstop time and now add it to time of the laps with pistop and then make the desicion
-#3. we need avg pitstop time and we already predicted lap time seconds but now we need to do it separately for 
-#.  before and after new tyre is made
-#now will have time when tyre is changed i.e pitstop and never will have other values
-
-print(b.info())
-time_to_predict_new=[]
-time_to_predict_old=[]
-for i in range(len(b)-1):
-    if b.loc[b.index[i],"TyreLife"]<7:
-        time_to_predict_new.append(b["LapTimeSeconds"].iloc[i])
+print(laps.info())
+fresh_tyre_lap_times = []
+worn_tyre_lap_times = []
+for i in range(len(laps) - 1):
+    if laps.loc[laps.index[i], "TyreLife"] < 7:
+        fresh_tyre_lap_times.append(laps["LapTimeSeconds"].iloc[i])
     else:
-        time_to_predict_old.append(b["LapTimeSeconds"].iloc[i])
+        worn_tyre_lap_times.append(laps["LapTimeSeconds"].iloc[i])
+print(fresh_tyre_lap_times)
+print(worn_tyre_lap_times)
+fresh_tyre_stints = laps[laps["TyreLife"] < 7]
+worn_tyre_stints = laps[laps["TyreLife"] >= 7]
+worn_tyre_stints = worn_tyre_stints.reset_index(drop=True)
+fresh_tyre_model = GradientBoostingRegressor()
+features_pitw= fresh_tyre_stints[["LapNumber", "TyreLife","Compound"]]
+target_pitw = fresh_tyre_lap_times
+features_pitw=features_pitw[:len(target_pitw)]
+features = features_pitw.iloc[:-1]
+Xk_train, Xk_test, y_train, y_test = train_test_split(features_pitw,target_pitw,test_size=0.5,random_state=42)
+fresh_tyre_model.fit(Xk_train,y_train)
+fresh_predictions = fresh_tyre_model.predict(Xk_test)
+print(fresh_predictions)
+print(r2_score(y_test,fresh_predictions))
+worn_tyre_model = GradientBoostingRegressor()
 
-print(time_to_predict_new)
-print(time_to_predict_old)
-from sklearn.ensemble import GradientBoostingRegressor
-fresh = b[b["TyreLife"] < 7]
-ntfresh=b[b["TyreLife"]>=7]
-h=GradientBoostingRegressor()
-X=fresh[["LapNumber","TyreLife","Compound"]]
-y=time_to_predict_new
-X = X.iloc[:-1]
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
+worn_features = worn_tyre_stints[["LapNumber", "TyreLife", "Compound"]]
+worn_target = worn_tyre_lap_times
+
+worn_features = worn_features[:len(worn_target)]
+worn_target = worn_target[:len(worn_features)]
+
+Xl_train, Xl_test, y_train, y_test = train_test_split(
+    worn_features,
+    worn_target,
     test_size=0.5,
     random_state=42
 )
-h.fit(X_train,y_train)
-f=h.predict(X_test)
-print(f)
-from sklearn.metrics import r2_score
-print(
-    r2_score(
-        y_test,
-        f
-    )
-)
-u=GradientBoostingRegressor()
-X=ntfresh[["LapNumber","TyreLife","Compound"]]
-y=time_to_predict_old
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.5,
-    random_state=42
-)
-u.fit(X_train,y_train)
-p=u.predict(X_test)
-print(p)
-from sklearn.metrics import r2_score
-print(
-    r2_score(
-        y_test,
-        p
-    )
-)
-h=[]
-for x in p:
-    h.append(x)
-print(h)
-j=[]
-for x in f:
-    j.append(x)
-print(j)
-print(len(h),len(j))
-for i in range(14,len(h)):
-    j.append(sum(j)/len(j))
-print(j)
-print(len(h),len(j))
-lap_nums = ntfresh.loc[X_test.index]["LapNumber"].tolist()
+worn_tyre_model.fit(Xl_train, y_train)
+worn_predictions = worn_tyre_model.predict(Xl_test)
+print(worn_predictions)
+print(r2_score( y_test,worn_predictions))
+worn_prediction_list = []
+for prediction in worn_predictions:
+    worn_prediction_list.append(prediction)
+print(worn_prediction_list)
+fresh_prediction_list = []
+for prediction in fresh_predictions:
+    fresh_prediction_list.append(prediction)
+print(fresh_prediction_list)
+print(len(worn_prediction_list),len(fresh_prediction_list))
+for i in range(14,len(worn_prediction_list)):
+    fresh_prediction_list.append(sum(fresh_prediction_list)/ len(fresh_prediction_list))
+print(fresh_prediction_list)
+print(len(worn_prediction_list),len(fresh_prediction_list))
+print("max worn index:", max(worn_tyre_stints.index))
+print("len worn:", len(worn_tyre_stints))
 
-for i in range(len(h)-5):
-    if sum(h[i:i+5]) < sum(j[i:i+5]):
-        print("Pit around lap", lap_nums[i])
+print("worn_X_test index:")
+print(Xl_test.index.tolist())
+
+print("max worn_X_test index:", max(Xl_test.index))
+lap_numbers = worn_tyre_stints.loc[Xl_test.index]["LapNumber"].tolist()
+for i in range(len(worn_prediction_list) - 5):
+    if (sum(worn_prediction_list[i:i + 5])<sum(fresh_prediction_list[i:i + 5])):
+        print("Pit around lap",lap_numbers[i])
