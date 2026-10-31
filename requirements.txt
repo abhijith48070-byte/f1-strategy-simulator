@@ -8,3 +8,5 @@ lightgbm>=4.0
 shap>=0.45
 # optional data source: only if you have an F1TV Access account (FastF1 >= 3.9 requires login)
 # fastf1>=3.9
+# dashboard
+streamlit>=1.50

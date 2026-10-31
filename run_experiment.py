@@ -26,6 +26,9 @@ def main():
     ap.add_argument("--out", default="results")
     ap.add_argument("--source", choices=["openf1", "fastf1"], default="openf1",
                     help="openf1 = free, no account (default). fastf1 needs an F1TV Access account.")
+    ap.add_argument("--ref-mode", choices=["full", "early", "fe"], default="full",
+                    help="full = v2 behaviour; early = causal reference from laps 2-8 only (no future information); "
+                         "fe = unbiased tyre slopes (see src/features.py)")
     ap.add_argument("--refresh", action="store_true", help="re-download data")
     ap.add_argument("--demo-lap", type=int, default=20)
     ap.add_argument("--demo-tyre-life", type=float, default=14)
@@ -37,7 +40,8 @@ def main():
     raw = (make_synthetic() if a.synthetic else
            build_dataset(a.rounds, a.year, csv_path=f"data/laps_{a.source}.csv", refresh=a.refresh,
                          source=a.source))
-    df = prepare(raw)
+    df = prepare(raw, ref_mode=a.ref_mode)
+    print(f"reference mode: {a.ref_mode}")
     reg = regression_set(df)
     reg_features = [f for f in C.REG_FEATURES if reg[f].notna().any()]
     pit_features = [f for f in C.PIT_FEATURES if df[f].notna().any()]
