@@ -1,0 +1,5 @@
+model,MAE_full_ref,MAE_causal_ref,R2_full_ref,R2_causal_ref,cover_full_ref,cover_causal_ref
+baseline_compound_mean,0.899,1.049,-0.039,-0.403,0.882,0.871
+hist_gbr,0.651,1.059,0.288,-0.562,0.882,0.798
+lightgbm,0.651,1.019,0.287,-0.428,0.881,0.801
+linear,0.628,0.932,0.36,-0.157,0.867,0.836

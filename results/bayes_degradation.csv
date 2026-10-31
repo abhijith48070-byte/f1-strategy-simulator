@@ -1,0 +1,4 @@
+compound,deg_s_per_lap,posterior_sd,between_group_sd,new_group_p05,new_group_p95
+SOFT,0.0923,0.0115,0.0393,0.0241,0.1593
+MEDIUM,0.0642,0.0099,0.0444,-0.0092,0.1391
+HARD,0.0518,0.0077,0.0356,-0.0104,0.1104

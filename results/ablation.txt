@@ -1,0 +1,14 @@
+22 races, 20382 laps. Skill = 1 - SSE/SSE(flat line), leave-one-race-out.
+
+model                          hist_gbr  lightgbm  linear
+features                                                 
+LapFrac only                      0.398     0.385   0.401
+TyreLife only                     0.001     0.001   0.006
+LapFrac + TyreLife                0.484     0.473   0.495
+LapFrac + TyreLife + Compound     0.482     0.471   0.495
+all features                      0.391     0.392   0.495
+
+Paired gain from adding TyreLife to LapFrac (skill difference, per held-out race):
+  linear    mean +0.094, sd 0.121, better in 18/22 races
+  hist_gbr  mean +0.085, sd 0.107, better in 18/22 races
+  lightgbm  mean +0.089, sd 0.112, better in 19/22 races

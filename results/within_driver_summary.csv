@@ -1,0 +1,8 @@
+,MAE,MAE,skill_vs_zero,skill_vs_zero
+,mean,std,mean,std
+model,,,,
+baseline_compound_mean,0.816,0.193,0.033,0.099
+hist_gbr,0.555,0.135,0.429,0.219
+lightgbm,0.545,0.129,0.449,0.196
+linear,0.545,0.158,0.462,0.185
+zero (flat within race),0.844,0.185,0.0,0.0
