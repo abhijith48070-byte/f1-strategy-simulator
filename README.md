@@ -1,177 +1,73 @@
-#F1 Strategy Simulator
+# F1 Strategy Simulator v2: held-out-race evaluation, uncertainty and pit-window simulation
 
-A machine learning project built using FastF1 race data from the 2024 Monaco Grand Prix. This project explores tyre degradation, lap time prediction, pit stop prediction, and basic pit window simulation using machine learning models.
+Predicts how much slower or faster a driver's lap is than their own reference pace, from tyre age,
+compound, race progress and weather, and uses that to compare pit strategies with uncertainty.
 
+> **Status:** pipeline tested on synthetic races with known physics (`python -m tests.test_pipeline`).
+> Real-data results: *add your table here after running on FastF1 data* (see "Results").
 
+## What changed from v1
+| Issue in v1 | Fix in v2 |
+|---|---|
+| Random 70/30 lap split, so adjacent laps of the same stint leak between train and test | **Leave-one-race-out**: the test race is never seen in training |
+| Pit label built with `shift(-1)` across the whole table (crosses driver boundaries); `AdjustedLapTime` used next-lap and pit-time data, which leaks the label | Label is the in-lap flag; features use only information known at the start of the lap; everything is grouped by (race, driver) |
+| Pit-window code compared predictions from *unrelated test rows* of two models | Counterfactual simulation: same driver, same lap, stay out vs pit at lap *p* |
+| One race (Monaco 2024) | Multiple circuits (`src/config.py`) |
+| No baselines, no intervals | Compound-mean baseline, linear model, gradient boosting (+LightGBM if installed), 90% conformal intervals |
+| Raw feature importance | Permutation importance on held-out races (+ SHAP if installed) |
 
-##Project Overview
+## Data source
+Default is **OpenF1** (free public API, no account or key, 2023 onward, limited to 30 requests/minute so the
+first download takes a few minutes). FastF1 3.9+ now requires an F1TV Access account; use it only with
+`--source fastf1` if you have one. OpenF1 has no per-lap position, so the `Position` feature is skipped.
 
-Formula 1 strategy decisions are heavily influenced by tyre wear and pit stop timing. This project uses historical race data to:
-
-* Analyze tyre degradation
-* Predict lap times
-* Predict pit stops
-* Simulate pit windows
-* Evaluate feature importance
-
-The goal is to understand how machine learning can assist race strategy decisions.
-
-
-##Features
-
-Pit Stop Prediction
-
-* Uses a Random Forest Classifier
-* Predicts whether a driver is likely to pit based on:
-    * Lap Number
-    * Tyre Life
-    * Tyre Compound
-    * Lap Timing Information
-
-Tyre Degradation Analysis
-
-* Studies the relationship between tyre age and lap performance
-* Visualizes how lap times change as tyres wear
-
-Lap Time Prediction
-
-* Uses Gradient Boosting Regression
-* Predicts lap times using:
-    * Tyre Life
-    * Tyre Compound
-    * Lap Number
-
-Pit Window Simulation
-
-* Compares predicted future lap times on:
-    * Current tyres
-    * Fresh tyres
-* Identifies potential pit windows where changing tyres may be beneficial
-
-
-
-##Technologies Used
-
-* Python
-* FastF1
-* Pandas
-* NumPy
-* Scikit-learn
-* Matplotlib
-
-
-
-##Machine Learning Models
-
-Classification
-
-* Random Forest Classifier
-
-Regression
-
-* Gradient Boosting Regressor
-* Linear Regression (baseline testing)
-* Random Forest Regressor (testing)
-* K-Nearest Neighbors Regressor (testing)
-* MLP Regressor (testing)
-
-
-##Dataset
-
-Data was collected using the FastF1 API from:
-
-* Season: 2024
-* Grand Prix: Monaco
-* Session: Race
-
-The dataset contains information such as:
-
-* Driver
-* Lap Number
-* Lap Time
-* Tyre Compound
-* Tyre Life
-* Pit Stop Information
-* Session Timing Data
-
-
-
-##Feature Importance
-
-Example feature importance from the tyre degradation model:
-Feature
-
-Importance
-
-| Feature | Importance |
-|----------|------------|
-| Lap Number | ~0.54 |
-| Tyre Life | ~0.34 |
-| Compound | ~0.12 |
-
-##Project Structure
-
-## Project Structure
-
-```text
-f1-strategy-simulator/
-│
-├── f1_strategy_simulator.py
-├── requirements.txt
-└── README.md
-```
-
- ## Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/abhijith48070-byte/f1-strategy-simulator.git
-cd f1-strategy-simulator
-```
-
-Install dependencies:
-
+## Run
 ```bash
 pip install -r requirements.txt
+python run_experiment.py                 # downloads races from OpenF1 (needs internet), caches to data/
+python run_experiment.py --synthetic     # offline self-test
+python -m tests.test_pipeline            # unit tests
+python -m tests.test_openf1_parse        # parser test
 ```
+Outputs go to `results/`: per-race metrics, summary table, permutation importance, `shap_summary.png`,
+pit-window table and plot.
 
-Run the project:
+## Method
+1. **Cleaning** (`src/features.py`): green-flag laps only, in/out laps removed, no rain, laps >7% slower than
+   the driver's median dropped.
+2. **Target**: `DeltaS` = lap time − the driver's reference pace in that race (15th percentile of clean laps).
+   This removes circuit and driver baselines so races are comparable.
+3. **Models**: compound-mean baseline, linear, HistGradientBoosting (+ LightGBM). Features: tyre life, lap fraction
+   (fuel proxy), compound, fresh-tyre flag, track/air temperature, position.
+4. **Uncertainty**: split conformal prediction. For each held-out race one other race is the calibration set.
+   Reported: empirical coverage (target 90%) and interval width.
+5. **Pit window** (`src/simulate.py`): total predicted time for "pit at lap p" vs "stay out", plus Monte Carlo using
+   bootstrapped residuals and observed pit-loss variation.
 
-```bash
-python f1_strategy_simulator.py
-```
+## Results
+Fill in from `results/loro_regression_summary.csv` after running on real data:
 
+| Model | Held-out MAE (s) | R² | 90% interval coverage |
+|---|---|---|---|
+| Compound-mean baseline | | | |
+| Linear | | | |
+| HistGradientBoosting | | | |
 
-##Future Improvements
+## Limitations (state these in your write-up)
+- **Reference pace is known** (driver's 15th-percentile lap in the same race). In real use it would be estimated
+  from early laps or practice.
+- `LapFrac` mixes fuel burn and track evolution; tyre wear is not cleanly isolated.
+- Tree models cannot extrapolate beyond tyre ages seen in training; "no stop" estimates are unreliable
+  when they exceed it (the runner prints a warning).
+- No traffic, safety cars/VSC, the two-compound rule, or undercut/overcut effects.
+- Lap-to-lap model errors are sampled independently in Monte Carlo, which understates correlation.
+- Pit loss is estimated from data and includes small tyre-age effects.
 
-* Safety car strategy simulation
-* Weather effects
-* Traffic modeling
-* Multi-race training
-* Undercut and overcut analysis
-* More advanced pit loss calculations
-* Real-time strategy recommendations
+- **Survivorship bias:** laps on very old tyres only exist when the tyres were still fast enough to stay out
+  (drivers pit when degradation bites), so degradation at high tyre age is understated and "no stop" looks
+  better than it is.
+- Pit-loss samples are restricted to 8-60 s; red-flag and glitch laps otherwise produce losses of hundreds of seconds.
+- The demo state (lap 20 of the median race length) is illustrative, not a real race situation.
 
-
-##Learning Outcomes
-
-Through this project I gained experience with:
-
-* Data cleaning and preprocessing
-* Feature engineering
-* Classification models
-* Regression models
-* Model evaluation
-* Race strategy simulation
-* Python data science workflows
-* Git and GitHub project management
-
-
-## Why I Built This
-
-I built this project to learn machine learning through a real-world motorsport application. The project explores how tyre wear, lap progression, and pit strategy influence race performance and how predictive models can assist strategic decision-making.
-
-##Disclaimer
-
-This project is intended for educational and research purposes only. The strategy recommendations generated by the simulator are simplified and do not represent the complexity of real Formula 1 race engineering systems.
+## Next steps
+Safety-car randomness in the simulator, strategy optimiser over compound sequences, survival model for pit timing.
