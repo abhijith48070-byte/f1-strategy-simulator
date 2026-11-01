@@ -1,5 +1,6 @@
-"""Within-driver ablation: does tyre age add anything beyond race progress?
+"""Within-driver ablation: does tyre age add anything beyond race progress (fuel burn + track evolution)?
     python run_ablation.py --exclude 2024_R08
+    python run_ablation.py --synthetic
 """
 import argparse
 import pandas as pd
@@ -9,11 +10,11 @@ from src.models import get_models
 from src.within import loro_within
 
 SETS = {
-    "LapFrac only":                  ["LapFrac"],
-    "TyreLife only":                 ["TyreLife"],
-    "LapFrac + TyreLife":            ["LapFrac", "TyreLife"],
-    "LapFrac + TyreLife + Compound": ["LapFrac", "TyreLife", "CompoundCode"],
-    "all features":                  ["LapFrac", "TyreLife", "CompoundCode", "FreshTyre", "TrackTemp", "AirTemp"],
+    "LapFrac only":                      ["LapFrac"],
+    "TyreLife only":                     ["TyreLife"],
+    "LapFrac + TyreLife":                ["LapFrac", "TyreLife"],
+    "LapFrac + TyreLife + Compound":     ["LapFrac", "TyreLife", "CompoundCode"],
+    "all features":                      ["LapFrac", "TyreLife", "CompoundCode", "FreshTyre", "TrackTemp", "AirTemp"],
 }
 
 
@@ -29,14 +30,15 @@ def main():
     reg = regression_set(prepare(raw, "full"))
     models = {k: v for k, v in get_models().items() if k in ("linear", "hist_gbr", "lightgbm")}
     print(f"{reg['RaceId'].nunique()} races, {len(reg)} laps. Skill = 1 - SSE/SSE(flat line), leave-one-race-out.\n")
-    per_race, rows = {}, []
+    per_race = {}
+    rows = []
     for label, feats in SETS.items():
         feats = [f for f in feats if reg[f].notna().any()]
         res, summ, _, _ = loro_within(reg, feats, models)
         for m in models:
             r = res[res.model == m].set_index("test_race")["skill_vs_zero"]
             per_race[(label, m)] = r
-            rows.append(dict(features=label, model=m, skill_mean=r.mean()))
+            rows.append(dict(features=label, model=m, skill_mean=r.mean(), skill_sd=r.std()))
     t = pd.DataFrame(rows).pivot(index="features", columns="model", values="skill_mean").reindex(SETS.keys()).round(3)
     print(t.to_string())
     print("\nPaired gain from adding TyreLife to LapFrac (skill difference, per held-out race):")

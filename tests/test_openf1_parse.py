@@ -59,5 +59,20 @@ def main():
     print("openf1 parser tests passed")
 
 
+def test_weather_is_backward_only():
+    """A lap must never see a weather sample that was recorded after the lap started."""
+    laps, stints, weather, drivers, rc = fake_payload()
+    t0 = pd.Timestamp("2024-03-02 15:00:00", tz="UTC")
+    weather = [dict(date=(t0 + pd.Timedelta(minutes=m)).isoformat(), track_temperature=100.0 + m,
+                    air_temperature=20.0, rainfall=0) for m in range(0, 15)]
+    df = build_race_df(laps, stints, weather, drivers, rc, race_id="T", event_name="T")
+    v = df[df.Driver == "VER"].set_index("LapNumber")
+    # lap 2 starts 95 s after t0 -> latest sample at or before it is minute 1 -> 101, never minute 2 (102)
+    assert v.loc[2, "TrackTemp"] == 101.0, v.loc[2, "TrackTemp"]
+    assert v.loc[1, "TrackTemp"] == 100.0
+    print("weather backward-only test passed")
+
+
 if __name__ == "__main__":
     main()
+    test_weather_is_backward_only()

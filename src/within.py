@@ -1,8 +1,12 @@
 """Within-driver evaluation: does the model get the SHAPE of a driver's race right?
 
-Target = lap time minus the mean lap time of the same driver in the same race; predictions are demeaned the same way.
-No reference pace is used and nothing is learned from the held-out race.
-skill_vs_zero = 1 - SSE(model) / SSE(predict 'no change within the race'). 0 = no better than a flat line.
+Strategy decisions depend on how lap time changes with tyre age and fuel, not on a driver's absolute pace level.
+Absolute levels (driver, car, circuit, traffic) cannot be predicted for an unseen race from tyre features, and any
+reference-pace definition either leaks future laps or is noisy. So here the target is lap time minus the mean lap time
+of the same driver in the same race, and predictions are demeaned the same way. This keeps only the within-race structure
+(tyre wear, fuel, track evolution), uses no reference pace, and nothing is learned from the held-out race.
+
+skill_vs_zero = 1 - SSE(model) / SSE(predict 'no change within the race'). 0 = no better than a flat line, 1 = perfect.
 """
 import pandas as pd
 from sklearn.base import clone

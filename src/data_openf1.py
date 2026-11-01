@@ -86,7 +86,7 @@ def build_race_df(laps, stints, weather, drivers, race_control, race_id, event_n
         W = W.dropna(subset=["date"]).sort_values("date")
         left = L[["date_start"]].copy().reset_index().dropna().sort_values("date_start")
         mw = pd.merge_asof(left, W[["date", "track_temperature", "air_temperature", "rainfall"]],
-                           left_on="date_start", right_on="date", direction="nearest")
+                           left_on="date_start", right_on="date", direction="backward")
         mw = mw.set_index("index")
         L["TrackTemp"] = mw["track_temperature"]
         L["AirTemp"] = mw["air_temperature"]

@@ -26,7 +26,7 @@ def main():
     ap.add_argument("--out", default="results")
     ap.add_argument("--source", choices=["openf1", "fastf1"], default="openf1",
                     help="openf1 = free, no account (default). fastf1 needs an F1TV Access account.")
-    ap.add_argument("--ref-mode", choices=["full", "early", "fe"], default="full",
+    ap.add_argument("--ref-mode", choices=["full", "early", "fe"], default="early",
                     help="full = v2 behaviour; early = causal reference from laps 2-8 only (no future information); "
                          "fe = unbiased tyre slopes (see src/features.py)")
     ap.add_argument("--refresh", action="store_true", help="re-download data")

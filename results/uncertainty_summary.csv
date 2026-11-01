@@ -1,0 +1,4 @@
+method,coverage,coverage_sd,width,interval_score,crps_qr,abs_coverage_gap
+cross_race_conformal,0.896,0.117,3.083,4.447,,0.004
+cross_race_ACI,0.905,0.019,2.902,3.89,,0.005
+single_race_conformal,0.795,0.168,2.258,4.884,,0.105

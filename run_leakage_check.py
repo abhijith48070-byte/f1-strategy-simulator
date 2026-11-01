@@ -1,7 +1,11 @@
-"""Same-laps leakage test and within-driver evaluation.
-    python run_leakage_check.py
-    python run_leakage_check.py --exclude 2024_R08
-    python run_leakage_check.py --synthetic
+"""Two checks that decide which numbers you can trust.
+
+ 1. SAME-LAPS leakage test: evaluate the same models on exactly the same laps with the v2 target (reference pace from the
+    whole race, non-causal) and with the causal target (reference from laps 2-8 only). The gap is the optimism caused by leakage.
+ 2. WITHIN-DRIVER evaluation: does the model capture the within-race shape (tyre wear, fuel, track evolution)? No reference pace.
+
+    python run_leakage_check.py                 (real data: data/laps_openf1.csv)
+    python run_leakage_check.py --synthetic     (offline self-test)
 """
 import argparse
 from pathlib import Path

@@ -35,18 +35,14 @@ def strategy_comparison(rec):
 def paired_distributions(rec):
     """Time difference to the recommended strategy, same simulated races (positive = slower than recommended)."""
     t = rec.sim.totals
-    labels = rec.summary["strategy"].tolist()
     fig, ax = plt.subplots(figsize=(8, 0.55 * t.shape[1] + 1.4))
-    for i, k in enumerate(range(1, t.shape[1])[::-1]):
-        d = t[:, k] - t[:, 0]
-        lo, q1, med, q3, hi = np.percentile(d, [5, 25, 50, 75, 95])
-        ax.hlines(i, lo, hi, color="#999", lw=1.5)
-        ax.hlines(i, q1, q3, color="#1f3a5f", lw=8)
-        ax.plot(med, i, "o", color="white", ms=4)
-    ax.set_yticks(range(t.shape[1] - 1))
-    ax.set_yticklabels(labels[1:][::-1], fontsize=8)
-    ax.axvline(0, color="k", lw=.8)
-    ax.set_xlabel("Seconds slower than the recommended strategy (thick = 25-75%, thin = 5-95%)")
+    data = [t[:, k] - t[:, 0] for k in range(t.shape[1])][1:]
+    labels = rec.summary["strategy"].tolist()[1:]
+    if data:
+        ax.boxplot(data[::-1], vert=False, tick_labels=labels[::-1], showfliers=False, whis=(5, 95))
+        ax.axvline(0, color="k", lw=.8)
+        ax.set_xlabel("Seconds slower than the recommended strategy (5-95% whiskers)")
+        ax.tick_params(axis="y", labelsize=8)
     fig.tight_layout()
     return fig
 
